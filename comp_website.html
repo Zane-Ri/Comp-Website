@@ -1,0 +1,666 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ThingSpeak Sensor Dashboard</title>
+  <style>
+    :root {
+      --bg-1: #0b1020;
+      --bg-2: #111a33;
+      --card: rgba(20, 29, 56, 0.72);
+      --card-border: rgba(255, 255, 255, 0.10);
+      --text: #eef2ff;
+      --muted: #9fb0d3;
+      --good: #79e2a0;
+      --warn: #ffd36b;
+      --bad: #ff8d8d;
+      --accent: #7cc4ff;
+      --accent-2: #9a7cff;
+      --shadow: 0 20px 50px rgba(0, 0, 0, 0.35);
+      --radius: 22px;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      color: var(--text);
+      background:
+        radial-gradient(circle at top left, rgba(124, 196, 255, 0.15), transparent 26%),
+        radial-gradient(circle at top right, rgba(154, 124, 255, 0.14), transparent 24%),
+        linear-gradient(160deg, var(--bg-1), var(--bg-2));
+      min-height: 100vh;
+      padding: 28px;
+    }
+
+    .container {
+      max-width: 1400px;
+      margin: 0 auto;
+    }
+
+    .hero {
+      display: grid;
+      grid-template-columns: 1.6fr 1fr;
+      gap: 20px;
+      margin-bottom: 22px;
+    }
+
+    .panel {
+      background: var(--card);
+      border: 1px solid var(--card-border);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+    }
+
+    .hero-main {
+      padding: 28px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .hero-main::after {
+      content: "";
+      position: absolute;
+      inset: auto -60px -60px auto;
+      width: 240px;
+      height: 240px;
+      background: radial-gradient(circle, rgba(124, 196, 255, 0.18), transparent 70%);
+      pointer-events: none;
+    }
+
+    .eyebrow {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 12px;
+      border-radius: 999px;
+      background: rgba(255,255,255,0.06);
+      color: var(--muted);
+      font-size: 13px;
+      letter-spacing: 0.02em;
+    }
+
+    h1 {
+      margin: 16px 0 10px;
+      font-size: clamp(30px, 5vw, 46px);
+      line-height: 1.05;
+      letter-spacing: -0.03em;
+    }
+
+    .sub {
+      color: var(--muted);
+      max-width: 760px;
+      font-size: 15px;
+      line-height: 1.6;
+      margin: 0;
+    }
+
+    .hero-side {
+      padding: 22px;
+      display: grid;
+      gap: 14px;
+      align-content: start;
+    }
+
+    .meta-row {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      align-items: center;
+      padding: 14px 16px;
+      border-radius: 16px;
+      background: rgba(255,255,255,0.04);
+      border: 1px solid rgba(255,255,255,0.06);
+    }
+
+    .meta-label {
+      color: var(--muted);
+      font-size: 13px;
+      margin-bottom: 4px;
+    }
+
+    .meta-value {
+      font-size: 16px;
+      font-weight: 700;
+    }
+
+    .dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: var(--warn);
+      box-shadow: 0 0 16px currentColor;
+    }
+
+    .dot.live { background: var(--good); }
+    .dot.error { background: var(--bad); }
+
+    .cards {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 18px;
+      margin-bottom: 22px;
+    }
+
+    .card {
+      padding: 20px;
+      min-height: 220px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .card-header {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      align-items: center;
+      margin-bottom: 12px;
+    }
+
+    .label {
+      font-size: 14px;
+      color: var(--muted);
+      font-weight: 600;
+    }
+
+    .pill {
+      font-size: 12px;
+      padding: 6px 10px;
+      border-radius: 999px;
+      background: rgba(255,255,255,0.06);
+      color: var(--muted);
+      border: 1px solid rgba(255,255,255,0.06);
+    }
+
+    .value {
+      font-size: clamp(32px, 4vw, 42px);
+      line-height: 1;
+      letter-spacing: -0.04em;
+      margin: 6px 0 8px;
+      font-weight: 800;
+    }
+
+    .delta {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 13px;
+      margin-bottom: 12px;
+      color: var(--muted);
+    }
+
+    .delta strong.up { color: var(--good); }
+    .delta strong.down { color: var(--bad); }
+    .delta strong.flat { color: var(--warn); }
+
+    .range-row {
+      display: flex;
+      gap: 16px;
+      flex-wrap: wrap;
+      margin-top: 10px;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .spark-wrap {
+      margin-top: 14px;
+      height: 86px;
+      background: linear-gradient(180deg, rgba(255,255,255,0.03), rgba(255,255,255,0.01));
+      border: 1px solid rgba(255,255,255,0.05);
+      border-radius: 16px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 8px;
+    }
+
+    svg.sparkline {
+      width: 100%;
+      height: 100%;
+      overflow: visible;
+    }
+
+    .spark-fill {
+      fill: rgba(124, 196, 255, 0.14);
+    }
+
+    .spark-line {
+      fill: none;
+      stroke: var(--accent);
+      stroke-width: 2.5;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: 1.25fr 0.75fr;
+      gap: 18px;
+      margin-bottom: 22px;
+    }
+
+    .table-panel,
+    .summary-panel {
+      padding: 20px;
+    }
+
+    .section-title {
+      font-size: 18px;
+      margin: 0 0 14px;
+      letter-spacing: -0.02em;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+    }
+
+    thead th {
+      text-align: left;
+      color: var(--muted);
+      font-weight: 600;
+      padding: 12px 10px;
+      border-bottom: 1px solid rgba(255,255,255,0.08);
+    }
+
+    tbody td {
+      padding: 11px 10px;
+      border-bottom: 1px solid rgba(255,255,255,0.06);
+      color: #e9eeff;
+      vertical-align: top;
+    }
+
+    tbody tr:hover {
+      background: rgba(255,255,255,0.03);
+    }
+
+    .summary-list {
+      display: grid;
+      gap: 12px;
+    }
+
+    .summary-item {
+      padding: 14px 16px;
+      border-radius: 16px;
+      background: rgba(255,255,255,0.04);
+      border: 1px solid rgba(255,255,255,0.06);
+    }
+
+    .summary-k {
+      color: var(--muted);
+      font-size: 13px;
+      margin-bottom: 6px;
+    }
+
+    .summary-v {
+      font-weight: 700;
+      font-size: 16px;
+    }
+
+    .muted {
+      color: var(--muted);
+    }
+
+    .footer-note {
+      color: var(--muted);
+      font-size: 13px;
+      text-align: center;
+      margin-top: 6px;
+    }
+
+    .error-box {
+      margin-top: 16px;
+      padding: 14px 16px;
+      border-radius: 14px;
+      background: rgba(255, 141, 141, 0.10);
+      border: 1px solid rgba(255, 141, 141, 0.22);
+      color: #ffd0d0;
+      display: none;
+      white-space: pre-wrap;
+    }
+
+    code.inline {
+      background: rgba(255,255,255,0.07);
+      padding: 3px 7px;
+      border-radius: 8px;
+      font-size: 12px;
+      color: #d8e8ff;
+    }
+
+    @media (max-width: 1100px) {
+      .hero, .grid { grid-template-columns: 1fr; }
+      .cards { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    }
+
+    @media (max-width: 720px) {
+      body { padding: 16px; }
+      .cards { grid-template-columns: 1fr; }
+      .hero-main, .hero-side, .card, .table-panel, .summary-panel { padding: 16px; }
+      table { display: block; overflow-x: auto; }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <section class="hero">
+      <div class="panel hero-main">
+        <div class="eyebrow">Live environmental + device telemetry</div>
+        <h1>ThingSpeak Sensor Dashboard</h1>
+        <p class="sub">
+          Replace the channel ID below, keep your read key, and this page will pull the most recent feeds from ThingSpeak,
+          show the latest values, draw mini trend charts, and refresh automatically.
+        </p>
+        <div id="errorBox" class="error-box"></div>
+      </div>
+
+      <div class="panel hero-side">
+        <div class="meta-row">
+          <div>
+            <div class="meta-label">Connection</div>
+            <div id="connectionText" class="meta-value">Waiting for first fetch</div>
+          </div>
+          <div id="connectionDot" class="dot"></div>
+        </div>
+        <div class="meta-row">
+          <div>
+            <div class="meta-label">Channel ID</div>
+            <div id="channelIdView" class="meta-value">SET_ME</div>
+          </div>
+          <div class="pill">ThingSpeak</div>
+        </div>
+        <div class="meta-row">
+          <div>
+            <div class="meta-label">Auto refresh</div>
+            <div class="meta-value">Every 30 seconds</div>
+          </div>
+          <div class="pill">Live</div>
+        </div>
+        <div class="meta-row">
+          <div>
+            <div class="meta-label">Last update</div>
+            <div id="lastUpdated" class="meta-value">—</div>
+          </div>
+          <div class="pill">Local time</div>
+        </div>
+      </div>
+    </section>
+
+    <section id="cards" class="cards"></section>
+
+    <section class="grid">
+      <div class="panel table-panel">
+        <h2 class="section-title">Recent samples</h2>
+        <table>
+          <thead>
+            <tr>
+              <th>Time</th>
+              <th>Temp</th>
+              <th>Humidity</th>
+              <th>Pressure</th>
+              <th>Avg Current</th>
+              <th>CO</th>
+              <th>Mic RMS</th>
+            </tr>
+          </thead>
+          <tbody id="tableBody"></tbody>
+        </table>
+      </div>
+
+      <div class="panel summary-panel">
+        <h2 class="section-title">Quick summary</h2>
+        <div class="summary-list" id="summaryList"></div>
+      </div>
+    </section>
+
+    <div class="footer-note">
+      If the page fails to load, the most common cause is a missing or incorrect <code class="inline">CHANNEL_ID</code>.
+    </div>
+  </div>
+
+  <script>
+    // ===============================
+    // SET THESE TWO VALUES
+    // ===============================
+    const CHANNEL_ID = "3317288";
+    const READ_API_KEY = "HVE7SEI4T6PR4PG0";
+
+    // How many recent points to show
+    const RESULTS = 60;
+    const REFRESH_MS = 30000;
+
+    const fields = [
+      { key: "field1", label: "Temperature", unit: "°C", short: "Temp", decimals: 1 },
+      { key: "field5", label: "CO Concentration", unit: "ppm", short: "CO", decimals: 2 },
+      { key: "field2", label: "Humidity", unit: "%", short: "Humidity", decimals: 1 },
+      { key: "field3", label: "Pressure", unit: "hPa", short: "Pressure", decimals: 1 },
+      { key: "field4", label: "Average Current", unit: "µA", short: "Avg Current", decimals: 1 },
+      { key: "field6", label: "Mic RMS", unit: "mV", short: "Mic RMS", decimals: 1 }
+    ];
+
+    const cardsEl = document.getElementById("cards");
+    const tableBody = document.getElementById("tableBody");
+    const summaryList = document.getElementById("summaryList");
+    const lastUpdated = document.getElementById("lastUpdated");
+    const connectionText = document.getElementById("connectionText");
+    const connectionDot = document.getElementById("connectionDot");
+    const errorBox = document.getElementById("errorBox");
+    const channelIdView = document.getElementById("channelIdView");
+
+    channelIdView.textContent = CHANNEL_ID;
+
+    function formatLocalDate(isoString) {
+      if (!isoString) return "—";
+      const d = new Date(isoString);
+      return d.toLocaleString([], {
+        year: "numeric",
+        month: "short",
+        day: "numeric",
+        hour: "numeric",
+        minute: "2-digit",
+        second: "2-digit"
+      });
+    }
+
+    function parseNum(value) {
+      const n = Number(value);
+      return Number.isFinite(n) ? n : null;
+    }
+
+    function fmt(n, decimals = 1) {
+      if (n === null || n === undefined || Number.isNaN(n)) return "—";
+      return n.toFixed(decimals);
+    }
+
+    function mean(values) {
+      if (!values.length) return null;
+      return values.reduce((a, b) => a + b, 0) / values.length;
+    }
+
+    function min(values) {
+      return values.length ? Math.min(...values) : null;
+    }
+
+    function max(values) {
+      return values.length ? Math.max(...values) : null;
+    }
+
+    function deltaText(current, previous, decimals) {
+      if (current === null || previous === null) {
+        return '<span class="muted">No previous sample</span>';
+      }
+      const delta = current - previous;
+      const abs = Math.abs(delta).toFixed(decimals);
+      if (delta > 0) return `<strong class="up">▲ +${abs}</strong> vs previous sample`;
+      if (delta < 0) return `<strong class="down">▼ -${abs}</strong> vs previous sample`;
+      return `<strong class="flat">■ 0.00</strong> vs previous sample`;
+    }
+
+    function sparklineSvg(values) {
+      if (!values.length) {
+        return '<div class="muted">No data</div>';
+      }
+
+      const width = 300;
+      const height = 70;
+      const pad = 4;
+      const lo = Math.min(...values);
+      const hi = Math.max(...values);
+      const span = hi - lo || 1;
+
+      const pts = values.map((v, i) => {
+        const x = pad + (i / Math.max(values.length - 1, 1)) * (width - 2 * pad);
+        const y = height - pad - ((v - lo) / span) * (height - 2 * pad);
+        return [x, y];
+      });
+
+      const line = pts.map(([x, y]) => `${x},${y}`).join(" ");
+      const area = `0,${height} ${pts.map(([x, y]) => `${x},${y}`).join(" ")} ${width},${height}`;
+
+      return `
+        <svg class="sparkline" viewBox="0 0 ${width} ${height}" preserveAspectRatio="none" aria-hidden="true">
+          <polygon class="spark-fill" points="${area}"></polygon>
+          <polyline class="spark-line" points="${line}"></polyline>
+        </svg>
+      `;
+    }
+
+    function renderCards(feeds) {
+      cardsEl.innerHTML = "";
+
+      fields.forEach((field) => {
+        const series = feeds
+          .map(feed => parseNum(feed[field.key]))
+          .filter(v => v !== null);
+
+        const current = series.length ? series[series.length - 1] : null;
+        const previous = series.length > 1 ? series[series.length - 2] : null;
+        const card = document.createElement("article");
+        card.className = "panel card";
+        card.innerHTML = `
+          <div class="card-header">
+            <div class="label">${field.label}</div>
+            <div class="pill">${field.unit}</div>
+          </div>
+          <div class="value">${fmt(current, field.decimals)} <span style="font-size:0.42em; color:var(--muted); font-weight:700;">${field.unit}</span></div>
+          <div class="delta">${deltaText(current, previous, field.decimals)}</div>
+          <div class="spark-wrap">${sparklineSvg(series)}</div>
+          <div class="range-row">
+            <span>Min: <strong>${fmt(min(series), field.decimals)}</strong></span>
+            <span>Avg: <strong>${fmt(mean(series), field.decimals)}</strong></span>
+            <span>Max: <strong>${fmt(max(series), field.decimals)}</strong></span>
+          </div>
+        `;
+        cardsEl.appendChild(card);
+      });
+    }
+
+    function renderTable(feeds) {
+      const recent = [...feeds].slice(-10).reverse();
+      tableBody.innerHTML = recent.map(feed => `
+        <tr>
+          <td>${formatLocalDate(feed.created_at)}</td>
+          <td>${fmt(parseNum(feed.field1), 1)} °C</td>
+          <td>${fmt(parseNum(feed.field2), 1)} %</td>
+          <td>${fmt(parseNum(feed.field3), 1)} hPa</td>
+          <td>${fmt(parseNum(feed.field4), 1)} µA</td>
+          <td>${fmt(parseNum(feed.field5), 2)} ppm</td>
+          <td>${fmt(parseNum(feed.field6), 1)} mV</td>
+        </tr>
+      `).join("");
+    }
+
+    function renderSummary(feeds) {
+      const latest = feeds[feeds.length - 1] || {};
+      const first = feeds[0] || {};
+      const items = [
+        {
+          k: "Samples loaded",
+          v: `${feeds.length}`
+        },
+        {
+          k: "Newest sample time",
+          v: formatLocalDate(latest.created_at)
+        },
+        {
+          k: "Oldest loaded sample",
+          v: formatLocalDate(first.created_at)
+        },
+        {
+          k: "Current temperature + humidity",
+          v: `${fmt(parseNum(latest.field1), 1)} °C / ${fmt(parseNum(latest.field2), 1)} %`
+        },
+        {
+          k: "Current pressure + current draw",
+          v: `${fmt(parseNum(latest.field3), 1)} hPa / ${fmt(parseNum(latest.field4), 1)} µA`
+        },
+        {
+          k: "Current CO + mic RMS",
+          v: `${fmt(parseNum(latest.field5), 2)} ppm / ${fmt(parseNum(latest.field6), 1)} mV`
+        }
+      ];
+
+      summaryList.innerHTML = items.map(item => `
+        <div class="summary-item">
+          <div class="summary-k">${item.k}</div>
+          <div class="summary-v">${item.v}</div>
+        </div>
+      `).join("");
+    }
+
+    function setStatus(state, text) {
+      connectionText.textContent = text;
+      connectionDot.classList.remove("live", "error");
+      if (state === "live") connectionDot.classList.add("live");
+      if (state === "error") connectionDot.classList.add("error");
+    }
+
+    async function loadData() {
+      if (!CHANNEL_ID || CHANNEL_ID === "SET_ME") {
+        setStatus("error", "Missing channel ID");
+        errorBox.style.display = "block";
+        errorBox.textContent = "Set CHANNEL_ID near the top of the file. Your read key is already filled in, but ThingSpeak feed reads also need the channel ID.";
+        return;
+      }
+
+      const url = `https://api.thingspeak.com/channels/${CHANNEL_ID}/feeds.json?api_key=${READ_API_KEY}&results=${RESULTS}`;
+
+      try {
+        setStatus("", "Refreshing...");
+        errorBox.style.display = "none";
+
+        const res = await fetch(url, { cache: "no-store" });
+        if (!res.ok) {
+          throw new Error(`HTTP ${res.status} while requesting feed data`);
+        }
+
+        const data = await res.json();
+        const feeds = Array.isArray(data.feeds) ? data.feeds : [];
+
+        if (!feeds.length) {
+          throw new Error("No feed entries were returned. Check that the channel ID and read API key match the same channel.");
+        }
+
+        renderCards(feeds);
+        renderTable(feeds);
+        renderSummary(feeds);
+
+        const newest = feeds[feeds.length - 1]?.created_at;
+        lastUpdated.textContent = newest ? formatLocalDate(newest) : formatLocalDate(new Date().toISOString());
+        setStatus("live", "Live data loaded");
+      } catch (err) {
+        setStatus("error", "Load failed");
+        errorBox.style.display = "block";
+        errorBox.textContent = `${err.message}\n\nExpected format:\nhttps://api.thingspeak.com/channels/YOUR_CHANNEL_ID/feeds.json?api_key=YOUR_READ_KEY&results=60`;
+      }
+    }
+
+    loadData();
+    setInterval(loadData, REFRESH_MS);
+  </script>
+</body>
+</html>
